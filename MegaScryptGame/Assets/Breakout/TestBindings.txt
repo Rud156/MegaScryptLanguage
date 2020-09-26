@@ -1,0 +1,14 @@
+Log("Hello World");
+
+var circle;
+
+var Start = function() {
+    Log("Start");
+
+    circle = SpawnCircle(50, 320, 240);
+    circle.name = "Circle";
+};
+
+var Update = function(var deltaTime) {
+    circle.x += deltaTime * 50;
+};

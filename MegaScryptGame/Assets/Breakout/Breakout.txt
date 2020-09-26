@@ -1,0 +1,207 @@
+
+var screenWidth = 640;
+var screenHeight = 480;
+
+var ball;
+var ballPrototype = {
+	radius: 10,
+	vx: 100,
+	vy: 100,
+	isBall: true,
+	isBrick: false,
+	isWall: false,
+	isPaddle: false
+};
+
+var paddle;
+var paddlePrototype = {
+	isPaddle: true,
+	isBall: false,
+	isWall: false,
+	isBrick: false
+};
+var paddleMinX = 30;
+var paddleMaxX = screenWidth - 30;
+var paddleSpeed = 120;
+
+var minX = 0;
+var minY = 0;
+var maxX = 640;
+var maxY = 480;
+
+var lives = 3;
+var score = 0;
+var bricksHit = 0;
+
+var gameOver = false;
+var won = false;
+
+var brickPrototype = {
+	isBrick: true,
+	isBall: false,
+	isWall: false,
+	isPaddle: false,
+	static: true
+};
+var bricks = [];
+var rows = 8;
+var cols = 12;
+var brickWidth = 40;
+var brickHeight = 20;
+var brickColors = ["#00ff00", "#0000ff", "#ffff00", "#00ffff", "#ff00ff"];
+var bricksOriginX = screenWidth / 2 - (cols * brickWidth) / 2;
+var bricksOriginY = screenHeight - 50 - rows * brickHeight;
+
+var wallPrototype = {
+	isWall: true,
+	isVertical: false,
+	isHorizontal: false,
+	isBrick: false,
+	isBall: false,
+	isPaddle: false,
+	static: true
+};
+
+var Start = function() {
+	ball = SpawnCircle(ballPrototype.radius, screenWidth/2, 40, ballPrototype, "#ff0000");
+	ball.name = "Ball";
+
+	paddle = SpawnRect(50, 10, 320, 20, paddlePrototype, "#ffff00");
+	paddle.name = "Paddle";
+
+	// spawn walls
+	var leftWall = SpawnRect(50, screenHeight, -25, screenHeight/2, wallPrototype, "#aaaaaa");
+	leftWall.name = "Left Wall";
+	leftWall.isVertical = true;
+	var rightWall = SpawnRect(50, 480, screenWidth + 25, screenHeight/2, wallPrototype, "#aaaaaa");
+	rightWall.name = "Right Wall";
+	rightWall.isVertical = true;
+	var topWall = SpawnRect(screenWidth, 50, screenWidth/2, screenHeight + 5, wallPrototype, "#aaaaaa");
+	topWall.name = "Top Wall";
+	topWall.isHorizontal = true;
+
+
+	for(var j = 0; j < rows; j++) {
+		bricks.Add([]);
+		for(var i = 0; i < cols; i++) {
+			var x = bricksOriginX + i * brickWidth;
+			var y = bricksOriginY + j * brickHeight;
+
+			var color = brickColors[(j * cols + i) % brickColors.Count];
+			var brick = SpawnRect(brickWidth, brickHeight, x, y, brickPrototype, color);
+			brick.name = "Brick " + i + ", " + j;
+			bricks[j].Add(brick);
+		}
+	}
+};
+
+var Update = function(var deltaTime) {
+
+	if(!gameOver) {
+		UpdateBall(deltaTime);
+		HandleInput(deltaTime);
+	}
+	DrawUi();
+};
+
+var UpdateBall = function(var deltaTime) {
+	ball.x += ball.vx * deltaTime;
+	ball.y += ball.vy * deltaTime;
+
+
+
+	if((ball.y + ball.radius) < minY)
+	{
+		lives--;
+		if(lives <= 0)
+		{
+			gameOver = true;
+			won = false;
+		}
+		else
+		{
+			var rand = Random(0, 2);
+			var dir = 1;
+			if(rand == 0)
+				dir = -1;
+			ball.x = Random(100, 300);
+			ball.y = 50;
+			ball.vx = 100 * dir;
+			ball.vy = 100;
+		}
+	}
+};
+
+var Reflect = function(var a, var aw, var ah, var b, var bw, var bh, var deltaTime) {
+		var axMin = a.x - aw/2;
+		var axMax = a.x + aw/2;
+		var ayMax = a.y + ah/2;
+		var ayMin = a.y - ah/2;
+		var bxMin = b.x - bw/2;
+		var bxMax = b.x + bw/2;
+		var byMax = b.y + bh/2;
+		var byMin = b.y - bh/2;
+
+		var cxMin = Max(axMin, bxMin);
+		var cxMax = Min(axMax, bxMax);
+		var hOverlap = cxMax - cxMin;
+		var cyMin = Max(ayMin, byMin);
+		var cyMax = Min(ayMax, byMax);
+		var vOverlap = cyMax - cyMin;
+
+		if(vOverlap <= hOverlap) {
+			a.vy = -a.vy;
+			a.y += a.vy * (deltaTime + 0.05);
+		}
+		if(hOverlap <= vOverlap){
+			a.vx = -a.vx;
+			a.x += a.vx * (deltaTime + 0.05);
+		}
+};
+
+var HandleInput = function(var deltaTime) {
+	if(GetKey("LeftArrow") && paddle.x > paddleMinX)
+		paddle.x -= paddleSpeed * deltaTime;
+	if(GetKey("RightArrow") && paddle.x < paddleMaxX)
+		paddle.x += paddleSpeed * deltaTime;
+};
+
+var DrawUi = function() {
+
+	DrawText("Score: " + score, 20, screenHeight - 20);
+	DrawText("Lives: " + lives, 20, screenHeight - 80);
+
+	if(gameOver)
+		if(won)
+			DrawText("You Won!", screenWidth/2 - 200, screenHeight/2 - 25);
+		else
+			DrawText("Game Over", screenWidth/2 - 200, screenHeight/2 - 25);
+
+};
+
+var OnCollision = function(var a, var b, var deltaTime)
+{
+	if(a.isBall || b.isBall)
+	{
+		var o = a;
+		if(a.isBall)
+			o = b;
+
+		Reflect(ball, ball.radius*2, ball.radius*2, o, o.width, o.height, deltaTime);
+
+		if(o.isBrick)
+		{
+			var brick = o;
+			bricksHit++;
+			score += 10;
+			if(bricksHit >= rows * cols)
+			{
+				gameOver = true;
+				won = true;
+			}
+
+			DestroyObject(brick);
+			PlaySfx("Bounce");
+		}
+	}
+};
